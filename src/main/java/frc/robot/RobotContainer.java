@@ -155,15 +155,13 @@ public class RobotContainer {
             .onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
 
 
-        m_driverController.y().whileTrue(new intakeGo(intakeee));
-        c.y().whileTrue(new intakeGo(intakeee));// test this one
- 
-
-       m_driverController.leftBumper().whileTrue(new ShooterWithSparkGO(shooter2));
+      
+       c.y().whileTrue(new intakeGo(intakeee));// test this one
        c.leftBumper().whileTrue(new ShooterWithSparkGO(shooter2));
+
         drivetrain.registerTelemetry(logger::telemeterize);
     }
-    
+
      public double speedScale(){
       if(m_driverController.leftBumper().getAsBoolean())
       return Constants.OperatorConstants.fastSpeed;
