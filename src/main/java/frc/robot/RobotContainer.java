@@ -1,95 +1,194 @@
-// Copyright (c) FIRST and other WPILib contributors.
-// Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
-
 package frc.robot;
+
+import static edu.wpi.first.units.Units.*;
+
+import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
+import com.ctre.phoenix6.mechanisms.swerve.LegacySwerveRequest.RobotCentric;
+// import com.ctre.phoenix6.swerve.SwerveRequest.RobotCentric;
+import com.ctre.phoenix6.swerve.SwerveRequest;
+
+import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.InstantCommand;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
+import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
+
+import frc.robot.generated.TunerConstants;
+import frc.robot.subsystems.CommandSwerveDrivetrain;
 
 import frc.robot.Constants.OperatorConstants;
 import frc.robot.commands.Autos;
-import frc.robot.commands.ExampleCommand;
+
 // import frc.robot.commands.RevShooterGoTheOtherWay;
 import frc.robot.commands.ShooterWithSparkGO;
 import frc.robot.commands.intakeGo;
 // import frc.robot.commands.intakeGoTheOtherWay;
 // import frc.robot.commands.shootGo;
 // import frc.robot.commands.shooterGoTheOtherWay;
-import frc.robot.subsystems.ExampleSubsystem;
+
 import frc.robot.subsystems.ShooterUsingRev;
-import frc.robot.subsystems.intake;
+import frc.robot.subsystems.theActualShooter;
 import frc.robot.subsystems.limelight;
 import frc.robot.subsystems.Limelight2;
 // import frc.robot.subsystems.shooter;
 import edu.wpi.first.wpilibj2.command.Command;
+
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
-/**
- * This class is where the bulk of the robot should be declared. Since Command-based is a
- * "declarative" paradigm, very little robot logic should actually be handled in the {@link Robot}
- * periodic methods (other than the scheduler calls). Instead, the structure of the robot (including
- * subsystems, commands, and trigger mappings) should be declared here.
- */
 public class RobotContainer {
-  // The robot's subsystems and commands are defined here...
-  private final ExampleSubsystem m_exampleSubsystem = new ExampleSubsystem();
+
+    private static final double DEADBAND = 0.08;
+    private  double speed = OperatorConstants.kSpeed;
+    private final double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
+
+    private final double MaxAngularRate = RotationsPerSecond.of(2.5).in(RadiansPerSecond);
+
+    private final SwerveRequest.FieldCentric drive =
+        new SwerveRequest.FieldCentric()
+            .withDeadband(0)
+            .withRotationalDeadband(0)
+            .withDriveRequestType(DriveRequestType.Velocity);
+    
+    private final SwerveRequest.RobotCentric robotCentric = new SwerveRequest.RobotCentric()
+            .withDeadband(0)
+            .withRotationalDeadband(0)
+            .withDriveRequestType(DriveRequestType.Velocity);
+
+    private final SwerveRequest.SwerveDriveBrake brake = new SwerveRequest.SwerveDriveBrake();
+
+    private final SwerveRequest.PointWheelsAt point = new SwerveRequest.PointWheelsAt();
+
+    private final Telemetry logger = new Telemetry(MaxSpeed);
+
+    public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+
+
 
   // Replace with CommandPS4Controller or CommandJoystick if needed
-  private final CommandXboxController m_driverController =
-      new CommandXboxController(OperatorConstants.kDriverControllerPort);
-  private final CommandXboxController c = new CommandXboxController(1);
+  private final CommandXboxController m_driverController = new CommandXboxController(OperatorConstants.kDriverControllerPort);
+  private final CommandXboxController c = new CommandXboxController(OperatorConstants.kOpControllerPort);
   // private final shooter shootter = new shooter();
-  private final intake intakeee = new intake();
+  private final theActualShooter intakeee = new theActualShooter();
   private final ShooterUsingRev shooter2 = new ShooterUsingRev();
  // private final limelight limee = new limelight();
-  private final Limelight2 limer = new Limelight2();
+  private final limelight limer = new limelight();
 
-  /** The container for the robot. Contains subsystems, OI devices, and commands. */
-  public RobotContainer() {
-    // Configure the trigger bindings
-    configureBindings();
-  }
 
-  /**
-   * Use this method to define your trigger->command mappings. Triggers can be created via the
-   * {@link Trigger#Trigger(java.util.function.BooleanSupplier)} constructor with an arbitrary
-   * predicate, or via the named factories in {@link
-   * edu.wpi.first.wpilibj2.command.button.CommandGenericHID}'s subclasses for {@link
-   * CommandXboxController Xbox}/{@link edu.wpi.first.wpilibj2.command.button.CommandPS4Controller
-   * PS4} controllers or {@link edu.wpi.first.wpilibj2.command.button.CommandJoystick Flight
-   * joysticks}.
-   */
-  private void configureBindings() {
-    // Schedule `ExampleCommand` when `exampleCondition` changes to `true`
-    new Trigger(m_exampleSubsystem::exampleCondition)
-        .onTrue(new ExampleCommand(m_exampleSubsystem));
+    public RobotContainer() {
+        configureBindings();
+    }
 
-    // Schedule `exampleMethodCommand` when the Xbox controller's B button is pressed,
-    // cancelling on release.
-    // m_driverController.b().whileTrue( new shootGo(shootter));
-    // c.b().whileTrue(new shootGo(shootter));
-    // m_driverController.a().whileTrue(new shooterGoTheOtherWay(shootter));
-    // c.a().whileTrue(new shooterGoTheOtherWay(shootter));
+    private void configureBindings() {
 
-    m_driverController.y().whileTrue(new intakeGo(intakeee));
-    c.y().whileTrue(new intakeGo(intakeee));
-    // m_driverController.x().whileTrue(new intakeGoTheOtherWay(intakeee));
-    // c.x().whileTrue(new intakeGoTheOtherWay(intakeee));
+        drivetrain.setDefaultCommand(
+            drivetrain.applyRequest(()-> {
 
-    m_driverController.leftBumper().whileTrue(new ShooterWithSparkGO(shooter2));
-    c.leftBumper().whileTrue(new ShooterWithSparkGO(shooter2));
+                double x =
+                    -MathUtil.applyDeadband(m_driverController.getLeftY(), DEADBAND);
+                double y =
+                    -MathUtil.applyDeadband(m_driverController.getLeftX(), DEADBAND);
+                double rot =
+                    -MathUtil.applyDeadband(m_driverController.getRightX(), DEADBAND);
 
-    // m_driverController.rightBumper().whileTrue(new RevShooterGoTheOtherWay(shooter2));
-    // c.rightBumper().whileTrue(new RevShooterGoTheOtherWay(shooter2));
+                return drive
+                    .withVelocityX(x * MaxSpeed)
+                    .withVelocityY(y * MaxSpeed)
+                    .withRotationalRate(rot * MaxAngularRate);
+            })
+        );
 
-  }
+        m_driverController.rightBumper().whileTrue(drivetrain.applyRequest(() -> {
 
-  /**
-   * Use this to pass the autonomous command to the main {@link Robot} class.
-   *
-   * @return the command to run in autonomous
-   */
-  public Command getAutonomousCommand() {
-    // An example command will be run in autonomous
-    return Autos.exampleAuto(m_exampleSubsystem);
-  }
+                double x =
+                    -MathUtil.applyDeadband(m_driverController.getLeftY(), DEADBAND);
+                double y =
+                    -MathUtil.applyDeadband(m_driverController.getLeftX(), DEADBAND);
+                double rot =
+                    -MathUtil.applyDeadband(m_driverController.getRightX(), DEADBAND);
+
+                return robotCentric
+                    .withVelocityX(x * MaxSpeed) // multiply this by slew limiter
+                    .withVelocityY(y * MaxSpeed)
+                    .withRotationalRate(rot * MaxAngularRate);
+            }));
+
+        final var idle = new SwerveRequest.Idle();
+        RobotModeTriggers.disabled().whileTrue(
+            drivetrain.applyRequest(() -> idle).ignoringDisable(true)
+        );
+
+        m_driverController.a().whileTrue(
+            drivetrain.applyRequest(() -> brake)
+        );
+
+        m_driverController.b().whileTrue(
+            drivetrain.applyRequest(() ->
+                point.withModuleDirection(
+                    new Rotation2d(
+                        -m_driverController.getLeftY(),
+                        -m_driverController.getLeftX()
+                    )
+                )
+            )
+        );
+        m_driverController.leftBumper().whileTrue(new InstantCommand(()-> speed = OperatorConstants.fastSpeed));
+        m_driverController.leftTrigger().whileTrue(new InstantCommand(()-> speed = OperatorConstants.slowSpeed));
+
+
+        m_driverController.back().and(m_driverController.y())
+            .whileTrue(drivetrain.sysIdDynamic(Direction.kForward));
+
+        m_driverController.back().and(m_driverController.x())
+            .whileTrue(drivetrain.sysIdDynamic(Direction.kReverse));
+
+        m_driverController.start().and(m_driverController.y())
+            .whileTrue(drivetrain.sysIdQuasistatic(Direction.kForward));
+
+        m_driverController.start().and(m_driverController.x())
+            .whileTrue(drivetrain.sysIdQuasistatic(Direction.kReverse));
+
+        m_driverController.leftBumper()
+            .onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
+
+
+        m_driverController.y().whileTrue(new intakeGo(intakeee));
+        c.y().whileTrue(new intakeGo(intakeee));// test this one
+ 
+
+       m_driverController.leftBumper().whileTrue(new ShooterWithSparkGO(shooter2));
+       c.leftBumper().whileTrue(new ShooterWithSparkGO(shooter2));
+        drivetrain.registerTelemetry(logger::telemeterize);
+    }
+    
+     public double speedScale(){
+      if(m_driverController.leftBumper().getAsBoolean())
+      return Constants.OperatorConstants.fastSpeed;
+        if(m_driverController.leftTrigger().getAsBoolean())
+      return Constants.OperatorConstants.slowSpeed;
+
+      return Constants.OperatorConstants.normalSpeed;
+     }
+
+    public Command getAutonomousCommand() {
+
+        final var idle = new SwerveRequest.Idle();
+
+        return Commands.sequence(
+            drivetrain.runOnce(() ->
+                drivetrain.seedFieldCentric(Rotation2d.kZero)
+            ),
+
+            drivetrain.applyRequest(() ->
+                drive.withVelocityX(0.5 * MaxSpeed)
+                     .withVelocityY(0)
+                     .withRotationalRate(0)
+            ).withTimeout(5.0),
+
+            drivetrain.applyRequest(() -> idle)
+        );
+    }
 }

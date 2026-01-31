@@ -1,11 +1,11 @@
 package frc.robot.commands;
 
 import edu.wpi.first.wpilibj2.command.Command;
-import frc.robot.subsystems.intake;
+import frc.robot.subsystems.theActualShooter;
 
 public class intakeGo extends Command{
-    intake in;
-    public intakeGo(intake in){
+    theActualShooter in;
+    public intakeGo(theActualShooter in){
         this.in = in;
         addRequirements(in);
     }
